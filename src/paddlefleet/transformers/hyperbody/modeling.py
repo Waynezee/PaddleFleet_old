@@ -747,6 +747,35 @@ class HyperBodyUnifiedModel(PipelineLayer):
             for i, x in enumerate(self._sequential_layers)
         }
 
+    def _iter_transformer_layers(self):
+        from paddlefleet.transformer.transformer_layer import TransformerLayer
+
+        if getattr(self, "_num_virtual_pipeline_stages", 1) > 1:
+            for chunk in self._model_chunks:
+                for layer in chunk:
+                    if isinstance(layer, TransformerLayer):
+                        yield layer
+        else:
+            for layer in self.run_function:
+                if isinstance(layer, TransformerLayer):
+                    yield layer
+
+    def fp8_quant_weight(self, batch_mode=False, quant_transpose=True):
+        for layer in self._iter_transformer_layers():
+            layer.fp8_quant_weight(
+                batch_mode=batch_mode, quant_transpose=quant_transpose
+            )
+
+    def clear_fp8_quant_weight(self):
+        for layer in self._iter_transformer_layers():
+            layer.clear_fp8_quant_weight()
+
+    def use_fp8(self):
+        for layer in self._iter_transformer_layers():
+            if layer.use_fp8():
+                return True
+        return False
+
     def get_layer_desc_list(self, spec: HyperBodySublayersSpec):
         layers = []
         # --- encoder region (name_prefix="encoder") ---
